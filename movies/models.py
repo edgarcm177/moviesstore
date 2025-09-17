@@ -20,3 +20,12 @@ class Review(models.Model):
 
     def __str__(self):
         return str(self.id) + ' - ' + self.movie.name
+
+class MovieRequest(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    movie_title = models.CharField(max_length=255)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'"{self.movie_title}" requested by {self.user.username}'
