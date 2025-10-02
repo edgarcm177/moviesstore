@@ -30,3 +30,12 @@ class MovieRequest(models.Model):
     def __str__(self):
         return f'"{self.movie_title}" requested by {self.user.username}'
 
+class MoviePetition(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    movie_title = models.CharField(max_length=255)
+    reason = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    votes= models.ManyToManyField(User, related_name='voted_petitions', blank=True)
+
+    def __str__(self):
+        return f'"{self.movie_title}" petition by {self.user.username}'

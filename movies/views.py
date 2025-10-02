@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Movie, Review, MovieRequest
+from .models import Movie, Review, MovieRequest, MoviePetition
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 
 def index(request):
     search_term = request.GET.get('search')
@@ -61,6 +62,60 @@ def delete_review(request, id, review_id):
     review = get_object_or_404(Review, id=review_id, user=request.user)
     review.delete()
     return redirect('movies.show', id=id)
+
+@login_required
+def petition_page(request):
+    if request.method == 'POST':
+        # --- Handle Voting ---
+        if 'vote_petition' in request.POST:
+            petition_id = request.POST.get('petition_id')
+            petition = get_object_or_404(MoviePetition, id=petition_id)
+            # Add user to votes if they haven't voted, remove if they have (toggle vote)
+            if request.user in petition.votes.all():
+                petition.votes.remove(request.user)
+            else:
+                petition.votes.add(request.user)
+            return redirect('movies.petitions')
+
+        # --- Handle Deleting a Petition ---
+        if 'delete_petition' in request.POST:
+            petition_id = request.POST.get('petition_id')
+            # Ensure the petition belongs to the user before deleting
+            petition = get_object_or_404(MoviePetition, id=petition_id, user=request.user)
+            petition.delete() # Bug Fix: Was missing ()
+            return redirect('movies.petitions') # Bug Fix: Was redirecting to requests
+
+        # --- Handle Creating a New Petition ---
+        movie_title = request.POST.get('movie_title')
+        reason = request.POST.get('reason')
+        if movie_title and reason:
+            # Bug Fix: Was creating a MovieRequest instead of MoviePetition
+            MoviePetition.objects.create(
+                user=request.user,
+                movie_title=movie_title,
+                reason=reason
+            )
+        return redirect('movies.petitions') # Bug Fix: Was redirecting to requests
+
+    # --- Display All Petitions (GET Request) ---
+    # Fetch all petitions, not just the user's
+    all_petitions = MoviePetition.objects.all().order_by('-created_at')
+
+    # Check approval status for each petition
+    petitions_with_status = []
+    for petition in all_petitions:
+        is_approved = Movie.objects.filter(name__iexact=petition.movie_title).exists()
+        petitions_with_status.append({
+            'petition': petition,
+            'is_approved': is_approved
+        })
+
+    context = {
+        'title': 'Movie Petitions',
+        'petitions_with_status': petitions_with_status
+    }
+    return render(request, 'movies/petition_page.html', {'template_data': context})
+
 
 @login_required
 def request_page(request):
